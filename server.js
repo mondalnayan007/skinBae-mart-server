@@ -57,6 +57,12 @@ async function run() {
         res.send(result);
     })
 
+    app.get('/category',async(req,res)=>{
+        const cursor = productsCollection.find();
+        const result= await cursor.toArray();
+        res.send(result);
+    })
+
 
     app.get('/category/:name',async(req,res)=>{
         const cName = req.params.name;

@@ -58,6 +58,20 @@ async function run() {
     })
 
 
+    app.get('/category/:name',async(req,res)=>{
+        const cName = req.params.name;
+        const query = {};
+
+        if(cName ){
+             query.category = { $regex: `^${cName}$`, $options: "i" };
+        }
+
+        const cursor =  productsCollection.find(query);
+        const result = await cursor.toArray();
+        res.send(result);
+    })
+
+
     app.post('/users',async(req,res)=>{
         const newUser = req.body;
         const result = await usersCollection.insertOne(newUser);

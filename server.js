@@ -34,7 +34,8 @@ async function run() {
         
 
         const db = client.db('skinBae_Mart');
-        const productsCollection = db.collection('products')
+        const productsCollection = db.collection('products');
+        const usersCollection = db.collection('users');
 
 
     //   get all products 
@@ -53,6 +54,13 @@ async function run() {
         const id = req.params.id;
         const query = {_id : new ObjectId(id)}
         const result = await productsCollection.findOne(query);
+        res.send(result);
+    })
+
+
+    app.post('/users',async(req,res)=>{
+        const newUser = req.body;
+        const result = await usersCollection.insertOne(newUser);
         res.send(result);
     })
 

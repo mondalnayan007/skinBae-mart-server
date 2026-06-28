@@ -8,10 +8,18 @@ const app = express();
 const port = process.env.PORT || 3000;
 const uri = process.env.MONGO_URI;
 
+const allowedOrigins = [
+  'http://localhost:5173',                  
+  'https://skin-bae-mart.vercel.app'        
+];
 
 
 
-app.use(cors());
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
 app.use(express.json());
 
 

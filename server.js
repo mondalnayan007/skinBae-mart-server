@@ -50,7 +50,7 @@ async function run() {
     //  get single product by id 
 
 
-    app.get('/products/:id' , async(req,res)=>{
+    app.get('/product/:id' , async(req,res)=>{
         const id = req.params.id;
         const query = {_id : new ObjectId(id)}
         const result = await productsCollection.findOne(query);
@@ -73,6 +73,14 @@ async function run() {
         }
 
         const cursor =  productsCollection.find(query);
+        const result = await cursor.toArray();
+        res.send(result);
+    })
+
+    // get first 20 products 
+
+    app.get('/product',async(req,res)=>{
+        const cursor = productsCollection.find().limit(20);
         const result = await cursor.toArray();
         res.send(result);
     })

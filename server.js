@@ -58,7 +58,7 @@ async function run() {
     //  get single product by id 
 
 
-    app.get('/product/:id' , async(req,res)=>{
+    app.get('product/:id' , async(req,res)=>{
         const id = req.params.id;
         const query = {_id : new ObjectId(id)}
         const result = await productsCollection.findOne(query);
@@ -72,7 +72,7 @@ async function run() {
     })
 
 
-    app.get('/category/:name',async(req,res)=>{
+    app.get('category/:name',async(req,res)=>{
         const cName = req.params.name;
         const query = {};
 

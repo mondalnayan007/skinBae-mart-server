@@ -44,6 +44,7 @@ async function run() {
         const db = client.db('skinBae_Mart');
         const productsCollection = db.collection('products');
         const usersCollection = db.collection('users');
+        const cartCollection = db.collection('carts');
 
 
         //   get all products 
@@ -206,6 +207,64 @@ async function run() {
             res.send(result);
 
         })
+
+
+
+
+        // ১. কার্টে প্রোডাক্ট যোগ অথবা কোয়ান্টিটি আপডেটের রুট (Upsert Logic)
+        app.post('/api/cart', async (req, res) => {
+            const { userEmail, productId, quantity, title, price, images, maxStock } = req.body;
+
+            
+
+            // ফিল্টার: এই ইউজারের কার্টে এই নির্দিষ্ট প্রোডাক্টটি অলরেডি আছে কি না
+            const filter = { userEmail: userEmail, productId: productId };
+
+            // চেক করা হচ্ছে কার্টে আইটেমটি অলরেডি এক্সিস্ট করে কি না
+            const existingItem = await cartCollection.findOne(filter);
+
+            if (existingItem) {
+                const newQuantity = existingItem.quantity + quantity;
+
+                // সেফটি গার্ড: স্টক কাউন্টের বেশি হতে দেবে না
+                if (newQuantity > maxStock) {
+                    return res.status(400).send({ error: "Stock limit exceeded!" });
+                }
+
+                // অলরেডি থাকলে কোয়ান্টিটি আপডেট হবে
+                const updateDoc = { $set: { quantity: newQuantity } };
+                const result = await cartCollection.updateOne(filter, updateDoc);
+                res.send(result);
+            } else {
+                // কার্টে নতুন আইটেম হলে সরাসরি ইনসার্ট হবে
+                const newItem = { userEmail, productId, quantity, title, price, images };
+                const result = await cartCollection.insertOne(newItem);
+                res.send(result);
+            }
+        });
+
+        // ২. ইউজারের ইমেইল অনুযায়ী নির্দিষ্ট কার্ট ডাটা নিয়ে আসার গেট (GET) রুট
+        app.get('/api/cart/:email', async (req, res) => {
+            const email = req.params.email;
+            
+            const query = { userEmail: email };
+            const result = await cartCollection.find(query).toArray();
+            res.send(result);
+        });
+
+        app.delete('/api/cart/remove', async (req, res) => {
+            const { userEmail, productId } = req.body;
+            
+
+            const query = { userEmail: userEmail, productId: productId };
+            const result = await cartCollection.deleteOne(query);
+            res.send(result);
+        });
+
+
+
+
+
 
 
 

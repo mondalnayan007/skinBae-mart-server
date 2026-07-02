@@ -65,7 +65,7 @@ async function run() {
             res.send(result);
         })
 
- // ১. সব ক্যাটাগরি এবং সার্চ হ্যান্ডেল করার API
+        // ১. সব ক্যাটাগরি এবং সার্চ হ্যান্ডেল করার API
         app.get('/category', async (req, res) => {
             try {
                 const { search } = req.query; // ফ্রন্টএন্ড থেকে আসা ?search=keyword
@@ -93,7 +93,7 @@ async function run() {
             try {
                 const cName = req.params.name;
                 const { search } = req.query; // ফ্রন্টএন্ড থেকে আসা ?search=keyword
-                
+
                 let query = {};
 
                 // ক্যাটাগরি ফিল্টার যোগ করা হলো
@@ -145,6 +145,52 @@ async function run() {
             const result = await usersCollection.insertOne(newUser);
             res.send(result);
         })
+
+
+        // ১. UPDATE/EDIT API (PUT METHOD)
+        app.put('/products/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const filter = { _id: new ObjectId(id) };
+                const updatedProduct = req.body;
+
+                const updateDoc = {
+                    $set: {
+                        title: updatedProduct.title,
+                        brand: updatedProduct.brand,
+                        size: updatedProduct.size,
+                        sku: updatedProduct.sku,
+                        category: updatedProduct.category,
+                        status: updatedProduct.status,
+                        availability: updatedProduct.availability,
+                        pricing: updatedProduct.pricing,
+                        briefDescription: updatedProduct.briefDescription,
+                        tags: updatedProduct.tags,
+                        images: updatedProduct.images
+                    },
+                };
+
+                const result = await productsCollection.updateOne(filter, updateDoc);
+                res.send(result);
+            } catch (error) {
+                res.status(500).send({ error: true, message: error.message });
+            }
+        });
+
+
+        //  delete apii 
+
+
+        app.delete('/products/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const query = { _id: new ObjectId(id) };
+                const result = await productsCollection.deleteOne(query);
+                res.send(result);
+            } catch (error) {
+                res.status(500).send({ error: true, message: error.message });
+            }
+        });
 
 
 

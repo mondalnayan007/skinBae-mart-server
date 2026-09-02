@@ -164,7 +164,7 @@ async function run() {
                 total_amount: orderData.totalAmount,
                 currency: 'BDT',
                 tran_id: 'REF123', // use unique tran_id for each api call
-                success_url: 'http://localhost:3030/success',
+                success_url: `http://localhost:4000/payment-success?email=${orderData.userEmail}`,
                 fail_url: 'http://localhost:3030/fail',
                 cancel_url: 'http://localhost:3030/cancel',
                 ipn_url: 'http://localhost:3030/ipn',
@@ -200,6 +200,15 @@ async function run() {
                 console.log('Redirecting to: ', GatewayPageURL)
             });
         });
+
+
+        app.post('/payment-success',async(req,res)=>{
+            const {email} = req.query;
+            
+
+            res.redirect('http://localhost:5173/payment-success');
+            const result = await cartCollection.deleteMany({userEmail:email})
+        })
 
 
             // ১. UPDATE/EDIT API (PUT METHOD)

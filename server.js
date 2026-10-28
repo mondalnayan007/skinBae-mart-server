@@ -123,6 +123,10 @@ app.get('/product', async (req, res) => {
     const result = await cursor.toArray();
     res.send(result);
 });
+app.get('/api/orders', async (req, res) => {
+    const orders = await ordersCollection.find().sort({ createdAt: -1 }).toArray();
+    res.send(orders);
+});
 
 app.post('/users', async (req, res) => {
     const newUser = req.body;
@@ -309,6 +313,17 @@ app.get('/api/cart/:email', async (req, res) => {
     const email = req.params.email;
     const query = { userEmail: email };
     const result = await cartCollection.find(query).toArray();
+    res.send(result);
+});
+
+app.patch('/api/admin/orders/:id/status', async (req, res) => {
+    const id = req.params.id;
+    const { orderStatus } = req.body;
+
+    const result = await ordersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { orderStatus: orderStatus } }
+    );
     res.send(result);
 });
 

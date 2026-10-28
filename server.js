@@ -174,7 +174,8 @@ app.post('/payment-success', async (req, res) => {
     const { email } = req.query;
     const query = { userEmail: email }
     const orders = await cartCollection.find(query)
-    await ordersCollection.insertOne(orders)
+    const result = await ordersCollection.insertOne(orders)
+    res.send(result)
 
     if (email) {
         await cartCollection.deleteMany({ userEmail: email });

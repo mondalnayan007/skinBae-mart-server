@@ -32,7 +32,7 @@ const client = new MongoClient(uri, {
 });
 
 // ডেটাবেস এবং কালেকশন রেফারেন্স গ্লোবালি ডিক্লেয়ার করা ভালো, যাতে সার্ভারলেস ফাংশনে দ্রুত এক্সেস পাওয়া যায়
-let db, productsCollection, usersCollection, cartCollection;
+let db, productsCollection, usersCollection, cartCollection,ordersCollection;
 
 async function connectDB() {
     if (!client.topology || !client.topology.isConnected()) {
@@ -41,6 +41,7 @@ async function connectDB() {
         productsCollection = db.collection('products');
         usersCollection = db.collection('users');
         cartCollection = db.collection('carts');
+        ordersCollection = db.collection('orders');
         console.log("Successfully connected to MongoDB!");
     }
 }
@@ -171,10 +172,16 @@ app.post('/api/orders', async (req, res) => {
 
 app.post('/payment-success', async (req, res) => {
     const { email } = req.query;
+    const query = { userEmail: email }
+    const orders = await cartCollection.find(query)
+    await ordersCollection.insertOne(orders)
+
     if (email) {
         await cartCollection.deleteMany({ userEmail: email });
     }
     res.redirect('https://skin-bae-mart.vercel.app/payment-success');
+
+  
 });
 
 app.put('/products/:id', async (req, res) => {

@@ -132,16 +132,50 @@ app.post('/users', async (req, res) => {
 
 app.post('/api/orders', async (req, res) => {
     const orderData = req.body;
+    const tran_id = 'REF_' + Date.now();
     
-    // ডাইনামিক বেস ইউআরএল সেট করা (লোকাল বা লাইভ সার্ভার অনুযায়ী)
-    const serverBaseUrl = 'https://skin-bae-mart-server.vercel.app'|| 'http://localhost:4000';
-    const frontendBaseUrl = 'https://skin-bae-mart.vercel.app'|| 'http://localhost:5173'; // অথবা লোকালহোস্ট প্রয়োজন হলে হ্যান্ডেল করতে পারেন
+    const serverBaseUrl = 'https://skin-bae-mart-server.vercel.app';
+    const frontendBaseUrl = 'https://skin-bae-mart.vercel.app';
 
+    // 1. Prothome user-er cart items gulo fetch kore temporary order object baniye rakhi
+    const cartItems = await cartCollection.find({ userEmail: orderData.userEmail }).toArray();
+    
+    if (cartItems.length === 0) {
+        return res.status(400).send({ error: "Cart is empty" });
+    }
+
+    const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const deliveryCharge = 60;
+    const totalAmount = subtotal + deliveryCharge;
+
+    // 2. Ekta pending order database-e save kore rakhi (shipping info shoho)
+    const pendingOrder = {
+        tran_id: tran_id,
+        userEmail: orderData.userEmail,
+        shippingInfo: orderData.shippingInfo, // Ekhane name, phone, address thakbe
+        items: cartItems.map(item => ({
+            productId: item.productId,
+            title: item.title,
+            price: item.price,
+            quantity: item.quantity,
+            images: item.images
+        })),
+        subtotal: subtotal,
+        deliveryCharge: deliveryCharge,
+        totalAmount: totalAmount,
+        paymentStatus: 'unpaid',
+        orderStatus: 'pending',
+        createdAt: new Date()
+    };
+
+    await ordersCollection.insertOne(pendingOrder);
+
+    // 3. SSLCommerz Data setup
     const data = {
-        total_amount: orderData.totalAmount,
+        total_amount: totalAmount,
         currency: 'BDT',
-        tran_id: 'REF_' + Date.now(), // ইউনিক ট্রানজাকশন আইডি জেনারেট করা ভালো
-        success_url: `${serverBaseUrl}/payment-success?email=${orderData.userEmail}`,
+        tran_id: tran_id, // Ei tran_id tai success URL er sathe pathabo
+        success_url: `${serverBaseUrl}/payment-success?tran_id=${tran_id}&email=${orderData.userEmail}`,
         fail_url: `${serverBaseUrl}/payment-fail`,
         cancel_url: `${serverBaseUrl}/payment-cancel`,
         ipn_url: `${serverBaseUrl}/payment-ipn`,
@@ -156,10 +190,10 @@ app.post('/api/orders', async (req, res) => {
         cus_postcode: '1000',
         cus_country: 'Bangladesh',
         cus_phone: orderData.shippingInfo?.phone || '01700000000',
-        ship_name: 'Customer Name',
-        ship_add1: 'Dhaka',
+        ship_name: orderData.shippingInfo?.fullName || 'Customer',
+        ship_add1: orderData.shippingInfo?.address || 'Dhaka',
         ship_city: 'Dhaka',
-        ship_postcode: 1000,
+        ship_postcode: '1000',
         ship_country: 'Bangladesh',
     };
 
@@ -172,53 +206,37 @@ app.post('/api/orders', async (req, res) => {
 
 app.post('/payment-success', async (req, res) => {
     try {
-        const { email } = req.query;
+        const { tran_id, email } = req.query;
 
-        if (!email) {
-            return res.status(400).send({ error: "Email is required" });
+        if (!tran_id) {
+            return res.status(400).send({ error: "Transaction ID is required" });
         }
 
-        // 1. User-er cart theke shob item gulo fetch koro
-        const cartItems = await cartCollection.find({ userEmail: email }).toArray();
+        // 1. Database theke oi tran_id er order-ke 'paid' kore dao ebong shipping info shoho save thakbei
+        const updateResult = await ordersCollection.updateOne(
+            { tran_id: tran_id },
+            { 
+                $set: { 
+                    paymentStatus: 'paid',
+                    orderStatus: 'processing' // ba pending rakhte paren
+                } 
+            }
+        );
 
-        if (cartItems.length === 0) {
-            return res.status(404).send({ message: "No items found in cart" });
+        if (updateResult.matchedCount === 0) {
+            return res.status(404).send({ error: "Order not found" });
         }
 
-        // 2. Total amount calculate koro
-        const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const deliveryCharge = 60; // Apnar niyom onujayi dite paren
-        const totalAmount = subtotal + deliveryCharge;
+        // 2. Order confirm howar por user-er cart khali kore dao
+        if (email) {
+            await cartCollection.deleteMany({ userEmail: email });
+        }
 
-        // 3. Single order object toiri koro
-        const singleOrder = {
-            userEmail: email,
-            items: cartItems.map(item => ({
-                productId: item.productId,
-                title: item.title,
-                price: item.price,
-                quantity: item.quantity,
-                images: item.images
-            })),
-            subtotal: subtotal,
-            deliveryCharge: deliveryCharge,
-            totalAmount: totalAmount,
-            paymentStatus: 'paid',
-            orderStatus: 'pending', // Admin dashboard theke eta change kora jabe
-            createdAt: new Date()
-        };
-
-        // 4. Orders collection-e insert koro
-        const result = await ordersCollection.insertOne(singleOrder);
-
-        // 5. Order kora sesh, tai cart khali kore dao
-        await cartCollection.deleteMany({ userEmail: email });
-
-        // 6. Frontend-er success page-e redirect koro
-        return res.redirect('https://skin-bae-mart.vercel.app/payment-success');
+        // 3. Frontend-er success page-e redirect koro
+        return res.redirect(`https://skin-bae-mart.vercel.app/payment-success?tran_id=${tran_id}`);
 
     } catch (error) {
-        console.error("Order creation error:", error);
+        console.error("Payment success error:", error);
         res.status(500).send({ error: "Internal Server Error" });
     }
 });

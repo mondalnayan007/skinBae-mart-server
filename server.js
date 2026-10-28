@@ -178,26 +178,47 @@ app.post('/payment-success', async (req, res) => {
             return res.status(400).send({ error: "Email is required" });
         }
 
-        const query = { userEmail: email };
-
-        // 1. Cart theke user-er shob item gulo anchi (toArray() use kore)
-        const cartItems = await cartCollection.find(query).toArray();
+        // 1. User-er cart theke shob item gulo fetch koro
+        const cartItems = await cartCollection.find({ userEmail: email }).toArray();
 
         if (cartItems.length === 0) {
-            return res.status(404).send({ message: "No items found in cart for this user" });
+            return res.status(404).send({ message: "No items found in cart" });
         }
 
-        // 2. Item gulo ordersCollection-e insert korchi (insertMany use kore)
-        const result = await ordersCollection.insertMany(cartItems);
+        // 2. Total amount calculate koro
+        const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const deliveryCharge = 60; // Apnar niyom onujayi dite paren
+        const totalAmount = subtotal + deliveryCharge;
 
-        // 3. Order successful howar por cart theke item gulo delete kore dicchi
-        await cartCollection.deleteMany(query);
+        // 3. Single order object toiri koro
+        const singleOrder = {
+            userEmail: email,
+            items: cartItems.map(item => ({
+                productId: item.productId,
+                title: item.title,
+                price: item.price,
+                quantity: item.quantity,
+                images: item.images
+            })),
+            subtotal: subtotal,
+            deliveryCharge: deliveryCharge,
+            totalAmount: totalAmount,
+            paymentStatus: 'paid',
+            orderStatus: 'pending', // Admin dashboard theke eta change kora jabe
+            createdAt: new Date()
+        };
 
-        // 4. Shese frontend-e redirect kore dicchi
+        // 4. Orders collection-e insert koro
+        const result = await ordersCollection.insertOne(singleOrder);
+
+        // 5. Order kora sesh, tai cart khali kore dao
+        await cartCollection.deleteMany({ userEmail: email });
+
+        // 6. Frontend-er success page-e redirect koro
         return res.redirect('https://skin-bae-mart.vercel.app/payment-success');
 
     } catch (error) {
-        console.error("Payment success error:", error);
+        console.error("Order creation error:", error);
         res.status(500).send({ error: "Internal Server Error" });
     }
 });

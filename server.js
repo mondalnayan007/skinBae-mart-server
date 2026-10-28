@@ -316,7 +316,7 @@ app.get('/api/cart/:email', async (req, res) => {
     res.send(result);
 });
 
-app.patch('/api/admin/orders/:id/status', async (req, res) => {
+app.patch('/api/orders/:id/status', async (req, res) => {
     const id = req.params.id;
     const { orderStatus } = req.body;
 

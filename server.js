@@ -171,18 +171,35 @@ app.post('/api/orders', async (req, res) => {
 });
 
 app.post('/payment-success', async (req, res) => {
-    const { email } = req.query;
-    const query = { userEmail: email }
-    const orders = await cartCollection.find(query)
-    const result = await ordersCollection.insertOne(orders)
-    res.send(result)
+    try {
+        const { email } = req.query;
 
-    if (email) {
-        await cartCollection.deleteMany({ userEmail: email });
+        if (!email) {
+            return res.status(400).send({ error: "Email is required" });
+        }
+
+        const query = { userEmail: email };
+
+        // 1. Cart theke user-er shob item gulo anchi (toArray() use kore)
+        const cartItems = await cartCollection.find(query).toArray();
+
+        if (cartItems.length === 0) {
+            return res.status(404).send({ message: "No items found in cart for this user" });
+        }
+
+        // 2. Item gulo ordersCollection-e insert korchi (insertMany use kore)
+        const result = await ordersCollection.insertMany(cartItems);
+
+        // 3. Order successful howar por cart theke item gulo delete kore dicchi
+        await cartCollection.deleteMany(query);
+
+        // 4. Shese frontend-e redirect kore dicchi
+        return res.redirect('https://skin-bae-mart.vercel.app/payment-success');
+
+    } catch (error) {
+        console.error("Payment success error:", error);
+        res.status(500).send({ error: "Internal Server Error" });
     }
-    res.redirect('https://skin-bae-mart.vercel.app/payment-success');
-
-  
 });
 
 app.put('/products/:id', async (req, res) => {
